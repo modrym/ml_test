@@ -5,22 +5,23 @@ import sys
 import joblib
 import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd
 from sklearn.datasets import fetch_openml
 
 
-def load_data():
+def load_data(cache=True, save=True):
     mnist_dir = os.path.join(os.getcwd(), 'data', 'mnist')
     os.makedirs(mnist_dir, exist_ok=True)
     mnist_file = os.path.join(mnist_dir, 'mnist.pkl')
 
-    if os.path.isfile(mnist_file):
-        print('loading')
+    if cache and os.path.isfile(mnist_file):
         mnist = joblib.load(mnist_file)
-        print('loaded')
     else:
         mnist = fetch_openml('mnist_784', version=1)
-        joblib.dump(mnist, mnist_file)
+
+        if save:
+            if os.path.exists(mnist_file):
+                os.remove(mnist_file)
+            joblib.dump(mnist, mnist_file)
 
     return mnist['data'], mnist['target'].astype(np.uint8)
 
@@ -55,7 +56,13 @@ def show_grid(arrs, nrows=1, ncols=1):
 
 def setup_argparser():
     parser = argparse.ArgumentParser()
-    subp = parser.add_subparsers(dest='action')
+    parser.add_argument('--disable-cache', '-c', action='store_true',
+                        help='If specified, do not use the cache file and '
+                             'download the data')
+    parser.add_argument('--disable-save', '-s', action='store_true',
+                        help='If specified, do not save fetched data')
+
+    subp = parser.add_subparsers(dest='action', required=True)
 
     p = subp.add_parser('show-grid', help='Show grid of numbers')
     p.add_argument('nrows', type=int, help='Number of rows')
@@ -67,6 +74,10 @@ def setup_argparser():
     p.add_argument('number', help='Number of image (counting from 0)',
                    type=int)
 
+    p = subp.add_parser('run', help='Train and test')
+    p.add_argument('--classifier', '-c', type=str,
+                   help='Number of image (counting from 0)')
+
     return parser
 
 
@@ -74,7 +85,8 @@ def main():
     parser = setup_argparser()
     parsed = parser.parse_args()
 
-    X, y = load_data()
+    X, y = load_data(cache=not parsed.disable_cache,
+                     save=not parsed.disable_save)
 
     if parsed.action == 'show-grid':
         sf = parsed.start_from
